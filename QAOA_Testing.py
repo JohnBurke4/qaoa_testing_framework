@@ -9,14 +9,20 @@ v = 16
 d = 3
 l = 1
 
-n = 1
+n = 10
+
+testing = 1
+classicAverageAR = 0
+qaoaAverageAR = [0] * testing
+
 
 for i in range(0, n):
-    graph = nx.random_graphs.random_regular_graph(d, v, seed=1)
-    classic_cut = nx.algorithms.approximation.one_exchange(graph)
-
+    graph = nx.random_graphs.random_regular_graph(d, v, seed=i)
     cost = CostFunction('maxcut', graph)
-    best_cut = getBestMaxcut(cost, v)
+    bestCut = getBestMaxcut(cost, v)
+    classicCut = nx.algorithms.approximation.one_exchange(graph)[0]
+   
+    classicAverageAR += (-classicCut / bestCut) / n
 
 
     scaff = QAOAScaffolding(v, 'maxcut', graph)
@@ -24,7 +30,14 @@ for i in range(0, n):
     res = scaff.minimizeExectation('constant', 'scipy', saveHistory=True, measurementStrategy='average_expectation')
     
 
-    qaoa_best = scaff.getExpectation(res.x, 'best_expectation')
+    qaoaCut = scaff.getExpectation(res.x, 'best_expectation')
 
-    print(qaoa_best)
+    qaoaAverageAR[0] += (qaoaCut / bestCut) / n
+
+
+
+print("Classsic Average:", classicAverageAR)
+print("QAOA Average:", qaoaAverageAR[0])
+
+
 
