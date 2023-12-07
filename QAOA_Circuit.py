@@ -2,6 +2,7 @@ from qiskit import QuantumCircuit
 from QAOA_Mixer import Mixer
 from QAOA_Cost_Hamiltonian import CostHamiltonian
 from QAOA_Initialization  import QAOAInit
+from Helper_Functions import groverDiffuser
 
 class QAOACircuit:
     circuit = None
@@ -33,6 +34,7 @@ class QAOACircuit:
 
         (initCirc, initParams) = init.getCircuitAtLayer(0)
         qc.append(initCirc, list(range(0, self.numQubits)))
+        parameters += initParams
 
         for l in range(0, self.layers):
 
@@ -43,6 +45,17 @@ class QAOACircuit:
             (mixerCirc, mixerParams) = mixer.getCircuitAtLayer(l)
             qc.append(mixerCirc, list(range(0, self.numQubits)))
             parameters += mixerParams
+
+
+            
+
+            
+
+        # diff = groverDiffuser(self.numQubits)
+
+        # qc.append(diff, list(range(0, self.numQubits)))
+
+        # qc.h(range(0, self.numQubits))
 
         qc.measure_all()
 
