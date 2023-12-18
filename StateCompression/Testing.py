@@ -4,96 +4,150 @@ import Quantum_Subroutines
 import os
 import Image_Compression
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 from qiskit import QuantumCircuit, Aer, transpile
 from qiskit_aer.backends.aerbackend import AerBackend
 from qiskit.providers.fake_provider import FakeSydneyV2
 from qiskit_aer import AerSimulator
+import csv
 
 
-N = 512
+N = 256
 dct = DCT.normal1D(N)
 
-image = ImageReader.getImage(ImageReader.TestImage, N)
+path = os.path.abspath("StateCompression/images/camera.png")
 
-rC = 1
+paths = ["camera", "bird", "peppers"]
+
+
+# image = ImageReader.chopUpImage(image, N)['pieces'][0]
+
+basis_gates = ['u1', 'u2', 'u3', 'cx']
+
+
+rC = 2
 cC = 1
 
-imageNorm = np.linalg.norm(image)
-normalizedImage = image / imageNorm
+comp = [(2, 1), (2, 2), (4, 2), (4, 4), (8, 4), (8, 8), (16, 8), (16, 16), (32, 16), (32, 32)]
+comp.reverse()
+# comp = [comp[1]]
+
+# open the file in the write mode
+f = open('compression_results.csv', 'w')
+
+# create the csv writer
+writer = csv.writer(f)
+
+headings = ["image", "compression", "psnr", "depth", "gates", "inner_product"]
+writer.writerow(headings)
+
+# write a row to the csv file
+for im in paths:
+    image = ImageReader.getImage(os.path.abspath("StateCompression/images/" + im + ".png"), N)
+
+    imageNorm = np.linalg.norm(image)
+    normalizedImage = image / imageNorm
+
+    for c in comp:
+        rC = c[0]
+        cC = c[1]
+        compressedImage = Image_Compression.naiveDCTCompression(image, N, rC, cC)
 
 
+        norm = np.linalg.norm(compressedImage)
+        normData = compressedImage / norm
+        remade = DCT.remakeImage(normData, dct)
+
+        inner = np.inner(remade.flatten(), normalizedImage.flatten())
+        # print("C:", c, "F:", inner**2)
+        nQubits = int(np.log2(N*N))
+
+        aQubits = int(nQubits/2)-1
+
+        totalQubits = nQubits + aQubits
+
+        qc = QuantumCircuit(totalQubits)
+
+        statePrep = Quantum_Subroutines.buildCompressedState(compressedImage, rC, cC)
+
+        qc.append(statePrep, range(0, nQubits))
 
 
-compressedImage = Image_Compression.naiveDCTCompression(image, N, rC, cC)
-# compressedImage = np.eye(N)
+        qdct = Quantum_Subroutines.QDCT(int(nQubits/2), mctMode="v-chain")
+
+        qc.append(qdct.inverse(), list(range(0, int(nQubits/2))) + list(range(nQubits, totalQubits)))
+        qc.append(qdct.inverse(), list(range(int(nQubits/2), int(nQubits))) + list(range(nQubits, totalQubits)))
+        
+
+        sim = Aer.get_backend('aer_simulator')
+        
+        circ = transpile(qc, sim, basis_gates=basis_gates)
+        depth = circ.depth()
+        gates = sum(dict(circ.count_ops()).values())
+        circ.save_statevector()
+        result = sim.run(circ).result()
+        out_vector = result.get_statevector().data[0:N*N]
+
+        imageData = out_vector.real.reshape((N, N))
+        # imageData = imageData
 
 
-norm = np.linalg.norm(compressedImage)
-normData = compressedImage / norm
-remade = DCT.remakeImage(normData, dct)
-nQubits = int(np.log2(N*N))
+        quantumImage = (imageData * imageNorm)
+        psnr = cv2.PSNR(image.astype(int), quantumImage.astype(int))
 
-aQubits =  0#int(nQubits/2)-1
+        print("C:", c, "P:", psnr, "D:", depth, "G:", gates, "I:", inner**2)
 
-totalQubits = nQubits + aQubits
+        row = [im, c[0] * c[1], psnr, depth, gates, inner**2]
 
-qc = QuantumCircuit(totalQubits)
+        writer.writerow(row)
 
-statePrep = Quantum_Subroutines.buildCompressedState(normalizedImage, rC, cC)
-
-qc.append(statePrep, range(0, nQubits))
-# qc.h([0, 1, 2, 3])
-
-
-# qdct = Quantum_Subroutines.QDCT(int(nQubits/2), mctMode="v-chain")
-
-# qc.append(qdct.inverse(), list(range(0, int(nQubits/2))) + list(range(nQubits, totalQubits)))
-# qc.append(qdct.inverse(), list(range(int(nQubits/2), int(nQubits))) + list(range(nQubits, totalQubits)))
-
-# qdct = Quantum_Subroutines.QDCT(int(nQubits), mctMode="recursion")
-
-# qc.append(qdct, range(0, totalQubits))
-
-# for i in range(0, nQubits):
-#     qc.cx(nQubits+1, nQubits-i)
-
-# qc.x(0)
-# qc.h(nQubits+1)
-
-# for i in range(0, nQubits-1):
-#     qc.swap(i, i+1)
-
-
-# print(qc.decompose(reps=50).depth())
-
-sim = Aer.get_backend('aer_simulator')
-# backend = FakeSydneyV2()
-# aersim_backend = AerSimulator.from_backend(backend)
-
-# circ = transpile(qc, aersim_backend)
-circ = transpile(qc, sim)
-circ.save_statevector()
-result = sim.run(circ).result()
-out_vector = result.get_statevector().data[0:N*N]
-
-imageData = out_vector.real.reshape((N, N))
-imageData = imageData
-
-# print(dct)
-# print(remade.equals(imageData))
-
-
-image2 = (imageData * norm).astype(np.uint8)
-image1 = (remade * norm).astype(np.uint8)
+    # plt.title("PSNR: " + str(psnr))
+    # plt.imshow(quantumImage, cmap='gray')
+    # plt.show()
 
 # print(image1)
 # print(image2)
 
-ImageReader.displayImage(image, "Classic Compressed")
-ImageReader.displayImage(image2, "Quantum Compressed")
-cv2.waitKey()
+
+
+
+# ImageReader.displayImage(image1.astype(np.uint8), "PSNR: " + str(int(psnr)))
+
+
+
+# ImageReader.displayImage(image2, "Quantum Compressed")
 
 
 
 
+
+
+# block = np.array([[144, 99, 94, 90],
+#          [148, 99, 94, 90],
+#          [148, 99, 94, 90],
+#          [148, 99, 94, 90]]).transpose()
+
+# # print(block)
+
+# dct2 = DCT.normal1D(4)
+
+# convert = DCT.convertImage2D(block, dct2).astype(int)
+# print(convert)
+# convert[0,1] = -12
+
+# convert[1,1] = -15
+# convert[2,1] = -4
+# convert[3,1] = 4
+
+
+# print(convert)
+# remade = DCT.remakeImage(convert, dct2).astype(int)
+# print(remade)
+# np.set_printoptions(precision=2)
+# np.set_printoptions(suppress=True)
+# convert2 = DCT.convertImage2D(remade, dct2)
+# convert2[:,2] = 0
+# convert2[:,3] = 0
+
+# print(np.linalg.norm(convert2))

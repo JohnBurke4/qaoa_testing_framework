@@ -22,7 +22,7 @@ class ImageReader:
 
         for i in range(0, size[0], N):
             for j in range(0, size[1], N):
-                result.append((image[i:i+N, j:j+N]).astype(int) - 128)
+                result.append((image[i:i+N, j:j+N]).astype(int))
 
         return {
             "pieces": result,

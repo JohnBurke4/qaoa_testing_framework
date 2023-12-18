@@ -80,8 +80,6 @@ def permutationCircuit(mat, N, M, N_c, M_c):
     
     f = mat.flatten()
     f_c = f
-
-    print(len(f_c))
     # qubit_list = list(range(0, m_c)) + list(range(m, m+n_c))
     # qubit_list = list(range(0, m_c+n_c))
     qc.initialize(f_c, range(0, num_qubits_c))
