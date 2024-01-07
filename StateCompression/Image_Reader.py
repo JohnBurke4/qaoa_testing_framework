@@ -2,12 +2,15 @@ import numpy as np
 import cv2
 import os
 
-class ImageReader:
 
-    def getImage(path, N):
+class ImageReader:
+    def getImage(path, N=None):
         # Read Images
         img = cv2.imread(path)
         gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+
+        if N is None:
+            return gray
 
         maxSize = tuple([(int(x) - (int(x) % N)) for x in gray.shape])
         maxSize = tuple(reversed(maxSize))
@@ -22,27 +25,25 @@ class ImageReader:
 
         for i in range(0, size[0], N):
             for j in range(0, size[1], N):
-                result.append((image[i:i+N, j:j+N]).astype(int))
+                result.append((image[i : i + N, j : j + N]).astype(int))
 
-        return {
-            "pieces": result,
-            "size": size
-        }
+        return {"pieces": result, "size": size}
 
     def reconstructImage(pieces, N):
-        length = pieces['size'][0]
-        width = pieces['size'][1]
+        length = pieces["size"][0]
+        width = pieces["size"][1]
         vfunc = np.vectorize(setLimit)
         result = np.ndarray(shape=(length, width), dtype=np.uint8)
         index = 0
         for i in range(0, length, N):
             for j in range(0, width, N):
                 # print((pieces['pieces'][index] + 128))
-                result[i:i+N, j:j+N] = vfunc(pieces['pieces'][index] + 128)
+                result[i : i + N, j : j + N] = vfunc(pieces["pieces"][index] + 128)
                 # print(result[i:i+N, j:j+N], i, j)
                 index += 1
-        
+
         return result
+
     TestImage = os.path.abspath("StateCompression/images/cameraman.png")
     ImageSetPaths = [
         "Image Test Sets\\artificial.pgm",
@@ -61,8 +62,8 @@ class ImageReader:
         "Image Test Sets\spider_web.pgm",
         "Image Test Sets\zone_plate.pgm",
     ]
-        
+
+
 def setLimit(a):
     a = a if a < 255 else 255
     return a if a > -255 else -255
-
