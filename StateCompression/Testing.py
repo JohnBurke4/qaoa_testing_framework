@@ -18,13 +18,14 @@ dct = DCT.normal1D(N)
 
 path = os.path.abspath("StateCompression/images/camera.png")
 
-paths = ["camera", "bird", "peppers"]
+paths = ["camera",  "peppers", "bird"]
+paths = [paths[0]]
 
 
 # image = ImageReader.chopUpImage(image, N)['pieces'][0]
 
-basis_gates = ['u1', 'u2', 'u3', 'cx']
-
+basis_gates = ['u1', 'u2', 'u3', 'cx', 'id']
+basis_gates = ['u3', 'cx', 'id']
 
 rC = 2
 cC = 1
@@ -33,8 +34,10 @@ comp = [(2, 1), (2, 2), (4, 2), (4, 4), (8, 4), (8, 8), (16, 8), (16, 16), (32, 
 comp.reverse()
 # comp = [comp[1]]
 
+comp = [(8, 8)]
+
 # open the file in the write mode
-f = open('compression_results.csv', 'w')
+f = open('compression_results_5.csv', 'w')
 
 # create the csv writer
 writer = csv.writer(f)
@@ -45,11 +48,13 @@ writer.writerow(headings)
 # write a row to the csv file
 for im in paths:
     image = ImageReader.getImage(os.path.abspath("StateCompression/images/" + im + ".png"), N)
+    print(image)
 
     imageNorm = np.linalg.norm(image)
     normalizedImage = image / imageNorm
 
     for c in comp:
+        # print(c)
         rC = c[0]
         cC = c[1]
         compressedImage = Image_Compression.naiveDCTCompression(image, N, rC, cC)
@@ -64,12 +69,15 @@ for im in paths:
         nQubits = int(np.log2(N*N))
 
         aQubits = int(nQubits/2)-1
+        # aQubits = 0
 
         totalQubits = nQubits + aQubits
 
         qc = QuantumCircuit(totalQubits)
 
         statePrep = Quantum_Subroutines.buildCompressedState(compressedImage, rC, cC)
+
+        # qc.initialize(normalizedImage.flatten(), range(0, nQubits))
 
         qc.append(statePrep, range(0, nQubits))
 
@@ -81,11 +89,15 @@ for im in paths:
         
 
         sim = Aer.get_backend('aer_simulator')
-        
-        circ = transpile(qc, sim, basis_gates=basis_gates)
+        print("Before")
+        # circ = transpile(qc, sim, basis_gates=basis_gates, optimization_level=0)
+        circ = transpile(qc, sim)
+        print("After")
         depth = circ.depth()
         gates = sum(dict(circ.count_ops()).values())
+        
         circ.save_statevector()
+
         result = sim.run(circ).result()
         out_vector = result.get_statevector().data[0:N*N]
 
@@ -94,17 +106,19 @@ for im in paths:
 
 
         quantumImage = (imageData * imageNorm)
+        print(quantumImage)
         psnr = cv2.PSNR(image.astype(int), quantumImage.astype(int))
 
         print("C:", c, "P:", psnr, "D:", depth, "G:", gates, "I:", inner**2)
+        # print("C:", c, "D:", depth, "G:", gates)
 
         row = [im, c[0] * c[1], psnr, depth, gates, inner**2]
 
         writer.writerow(row)
 
-    # plt.title("PSNR: " + str(psnr))
-    # plt.imshow(quantumImage, cmap='gray')
-    # plt.show()
+        plt.title("PSNR: " + str(psnr))
+        plt.imshow(quantumImage, cmap='gray')
+        plt.show()
 
 # print(image1)
 # print(image2)

@@ -47,6 +47,7 @@ class StatePreparation(Gate):
         inverse: bool = False,
         label: Optional[str] = None,
         normalize: bool = False,
+        goalBitString: int = 0
     ):
         r"""
         Args:
@@ -84,6 +85,7 @@ class StatePreparation(Gate):
         self._params_arg = params
         self._inverse = inverse
         self._name = "state_preparation_dg" if self._inverse else "state_preparation"
+        self.goalBitString = goalBitString
 
         if label is None:
             self._label = (
@@ -279,36 +281,39 @@ class StatePreparation(Gate):
         # kick start the peeling loop, and disentangle one-by-one from LSB to MSB
         remaining_param = self.params
 
+
+
+
         for i in range(self.num_qubits):
+            bitValue = (self.goalBitString // (2**i)) % 2
             # work out which rotations must be done to disentangle the LSB
             # qubit (we peel away one qubit at a time)
             (
                 remaining_param,
                 thetas,
                 phis,
-            ) = StatePreparation._rotations_to_disentangle(remaining_param)
-
+            ) = StatePreparation._rotations_to_disentangle(remaining_param, bitValue=bitValue)
             # perform the required rotations to decouple the LSB qubit (so that
             # it can be "factored" out, leaving a shorter amplitude vector to peel away)
 
             add_last_cnot = True
-            # if np.linalg.norm(phis) != 0 and np.linalg.norm(thetas) != 0:
-            #     add_last_cnot = False
+            if np.linalg.norm(phis) != 0 and np.linalg.norm(thetas) != 0:
+                add_last_cnot = False
 
-            # if np.linalg.norm(phis) != 0:
-            #     rz_mult = self._multiplex(RZGate, phis, last_cnot=add_last_cnot)
-            #     circuit.append(rz_mult.to_instruction(), q[i : self.num_qubits])
+            if np.linalg.norm(phis) != 0:
+                rz_mult = self._multiplex(RZGate, phis, last_cnot=add_last_cnot)
+                circuit.append(rz_mult.to_instruction(), q[i : self.num_qubits])
 
             if np.linalg.norm(thetas) != 0:
                 ry_mult = self._multiplex(RYGate, thetas, last_cnot=add_last_cnot)
                 circuit.append(
                     ry_mult.to_instruction().reverse_ops(), q[i : self.num_qubits]
                 )
-        # circuit.global_phase -= np.angle(sum(remaining_param))
+        circuit.global_phase -= np.angle(sum(remaining_param))
         return circuit
 
     @staticmethod
-    def _rotations_to_disentangle(local_param):
+    def _rotations_to_disentangle(local_param, bitValue):
         """
         Static internal method to work out Ry and Rz rotation angles used
         to disentangle the LSB qubit.
@@ -334,7 +339,7 @@ class StatePreparation(Gate):
             # and 2*(i+1), corresponding to the select qubits of the
             # multiplexor being in state |i>)
             (remains, add_theta, add_phi) = StatePreparation._bloch_angles(
-                local_param[2 * i : 2 * (i + 1)]
+                local_param[2 * i : 2 * (i + 1)], bitValue=bitValue
             )
 
             remaining_vector.append(remains)
@@ -347,11 +352,12 @@ class StatePreparation(Gate):
         return remaining_vector, thetas, phis
 
     @staticmethod
-    def _bloch_angles(pair_of_complex):
+    def _bloch_angles(pair_of_complex, bitValue = 0):
         """
         Static internal method to work out rotation to create the passed-in
         qubit from the zero vector.
         """
+        
         [a_complex, b_complex] = pair_of_complex
         # Force a and b to be complex, as otherwise numpy.angle might fail.
         a_complex = complex(a_complex)
@@ -365,21 +371,23 @@ class StatePreparation(Gate):
             final_r = 0
             final_t = 0
         else:
-            theta = 2 * np.arccos(mag_a / final_r)
+            theta = bitValue * np.pi + 2 * np.arccos(mag_a / final_r)
             a_arg = np.angle(a_complex)
             b_arg = np.angle(b_complex)
             final_t = a_arg + b_arg
             phi = b_arg - a_arg
             # print(phi)
 
-            if phi >= np.pi:
-                theta = 2 * np.pi - theta
-            if phi <= -np.pi:
-                theta = 0 * np.pi - theta
+            # if phi >= np.pi:
+            #     theta = 2 * np.pi - theta
+            # if phi <= -np.pi:
+            #     theta = 0 * np.pi - theta
+
+        # print(pair_of_complex, a_arg, b_arg, theta)
 
         return final_r * np.exp(1.0j * final_t / 2), theta, phi
 
-    def _multiplex(self, target_gate, list_of_angles, last_cnot=True):
+    def _multiplex(self, target_gate, list_of_angles, last_cnot=True, bitValue=0):
         """
         Return a recursive implementation of a multiplexor circuit,
         where each instruction itself has a decomposition based on
@@ -442,6 +450,8 @@ class StatePreparation(Gate):
         # attach a final CNOT
         if last_cnot:
             circuit.append(CXGate(), [msb, lsb])
+
+        
 
         return circuit
 
@@ -555,3 +565,4 @@ def prepare_state(self, state, qubits=None, label=None, normalize=False):
 
 
 QuantumCircuit.prepare_state = prepare_state
+
