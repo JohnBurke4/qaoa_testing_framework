@@ -2,6 +2,7 @@ from qiskit import QuantumCircuit
 from qiskit.circuit.library import QFT
 import numpy as np
 from CustomStatePrep import StatePreparation
+from qiskit.circuit.library import Isometry
 
 def QDCT(n, mctMode="v-chain"):
 
@@ -84,7 +85,7 @@ def permutationCircuit(mat, N, M, N_c, M_c):
     # qubit_list = list(range(0, m_c)) + list(range(m, m+n_c))
     # qubit_list = list(range(0, m_c+n_c))
     qc2 = QuantumCircuit(num_qubits_c)
-    statePrep = StatePreparation(f_c)
+    statePrep = Isometry(f_c, num_ancillas_zero=0, num_ancillas_dirty=0)
     qc.append(statePrep, range(0, num_qubits_c))
     # qc.initialize(f_c, range(0, num_qubits_c))
     # print(qc2.decompose(reps=2))

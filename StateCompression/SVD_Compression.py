@@ -29,10 +29,7 @@ basis_gates = ['u3', 'cx', 'id']
 # image = image / np.linalg.norm(image)
 
 
-
-
-
-maxCompression = 7
+maxCompression = 8
 
 for comp in range(maxCompression, -1, -1):
     [U, D, V] = np.linalg.svd(image)
@@ -47,9 +44,7 @@ for comp in range(maxCompression, -1, -1):
 
     D = D / dNorm
 
-
     D = D.transpose()
-
 
     def prepareDState(D, totalQubits):
         qubits = int(np.log2(len(D)))
@@ -59,12 +54,14 @@ for comp in range(maxCompression, -1, -1):
             qc.cx(i, totalQubits//2)
         return qc
 
-    qubits = int(2 * np.log2(max))
-    qc = QuantumCircuit(qubits)
+    # qubits = int(2 * np.log2(max))
+    # qc = QuantumCircuit(qubits)
 
-    statePrep = prepareDState(D, qubits)
-    statePrep.name = "S"
-    qc.append(statePrep, range(0, qubits))
+    # if (n != 1):
+    #     statePrep = prepareDState(D, qubits)
+    #     statePrep.name = "S"
+    #     qc.append(statePrep, range(0, qubits))
+    
 
     # print(U.shape)
     # print(V.shape)
@@ -76,41 +73,38 @@ for comp in range(maxCompression, -1, -1):
 
     # print(U)
 
+    # uIsometry = Isometry(U, num_ancillas_dirty=0, num_ancillas_zero=0)
+    # uIsometry.name = "U"
+    # vIsometry = Isometry(V, num_ancillas_dirty=0, num_ancillas_zero=0)
+    # vIsometry.name = "V"
 
+    # qc.append(vIsometry, range(0, qubits//2))
+    # qc.append(uIsometry, range(qubits//2, qubits))
 
+    # # print(qc)
 
+    # sim = Aer.get_backend('aer_simulator')
+    # circ = transpile(qc, sim, basis_gates=basis_gates)
+    # depth = circ.depth()
+    # gates = sum(dict(circ.count_ops()).values())
+    # # print(depth, gates)
 
-    uIsometry = Isometry(U, num_ancillas_dirty=0, num_ancillas_zero=0)
-    uIsometry.name = "U"
-    vIsometry = Isometry(V, num_ancillas_dirty=0, num_ancillas_zero=0)
-    vIsometry.name = "V"
+    # # circ.save_statevector()
 
-    qc.append(vIsometry, range(0, qubits//2))
-    qc.append(uIsometry, range(qubits//2, qubits))
+    # # result = sim.run(circ, nshots=1).result()
+    # # out_vector = result.get_statevector().data
 
-    # print(qc)
-
-    sim = Aer.get_backend('aer_simulator')
-    circ = transpile(qc, sim, basis_gates=basis_gates)
-    depth = circ.depth()
-    gates = sum(dict(circ.count_ops()).values())
-    # print(depth, gates)
-
-    # circ.save_statevector()
-
-    # result = sim.run(circ, nshots=1).result()
-    # out_vector = result.get_statevector().data
-
-    # imageData = out_vector.real.reshape((max, max))
-    # # imageData = imageData
+    # # imageData = out_vector.real.reshape((max, max))
+    # # # imageData = imageData
 
     V = V.transpose()
 
     for i in range(0, len(D)):
-        V[i,:] *= D[i]
+        V[i, :] *= D[i]
 
-    classicalCompressed = np.matmul(U, V)*dNorm
+    classicalCompressed = np.matmul(U, V) * dNorm
 
+    # inner = np.inner(classicalCompressed.flatten(), image.flatten() / np.linalg.norm(image))
 
     # print(V)
     # print(D)
@@ -121,11 +115,11 @@ for comp in range(maxCompression, -1, -1):
 
     # print(imageData)
 
-
     # quantumImage = (imageData * dNorm)
 
-    psnr = cv2.PSNR(image.astype(int), classicalCompressed.astype(int))
-    print(comp, gates, depth, psnr)
+    # psnr = cv2.PSNR(image.astype(int), classicalCompressed.astype(int))
+    # print(comp, gates, depth, psnr)
+    # print(comp, inner**2)
 
-    # plt.imshow(classicalCompressed, cmap='gray')
+    plt.imsave("svd_cameraX" + str(comp) + ".png", classicalCompressed, cmap='gray')
     # plt.show()

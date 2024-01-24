@@ -30,11 +30,11 @@ basis_gates = ['u3', 'cx', 'id']
 rC = 2
 cC = 1
 
-comp = [(2, 1), (2, 2), (4, 2), (4, 4), (8, 4), (8, 8), (16, 8), (16, 16), (32, 16), (32, 32)]
+comp = [(2, 1), (2, 2), (4, 2), (4, 4), (8, 4), (8, 8), (16, 8), (16, 16)]#, (32, 16), (32, 32)]
 comp.reverse()
 # comp = [comp[1]]
 
-comp = [(8, 8)]
+# comp = [(8, 8)]
 
 # open the file in the write mode
 f = open('compression_results_5.csv', 'w')
@@ -48,7 +48,7 @@ writer.writerow(headings)
 # write a row to the csv file
 for im in paths:
     image = ImageReader.getImage(os.path.abspath("StateCompression/images/" + im + ".png"), N)
-    print(image)
+    # print(image)
 
     imageNorm = np.linalg.norm(image)
     normalizedImage = image / imageNorm
@@ -89,10 +89,10 @@ for im in paths:
         
 
         sim = Aer.get_backend('aer_simulator')
-        print("Before")
-        # circ = transpile(qc, sim, basis_gates=basis_gates, optimization_level=0)
-        circ = transpile(qc, sim)
-        print("After")
+        # print("Before")
+        circ = transpile(qc, sim, basis_gates=basis_gates)
+        # circ = transpile(qc, sim)
+        # print("After")
         depth = circ.depth()
         gates = sum(dict(circ.count_ops()).values())
         
@@ -106,19 +106,19 @@ for im in paths:
 
 
         quantumImage = (imageData * imageNorm)
-        print(quantumImage)
+        # print(quantumImage)
         psnr = cv2.PSNR(image.astype(int), quantumImage.astype(int))
 
         print("C:", c, "P:", psnr, "D:", depth, "G:", gates, "I:", inner**2)
         # print("C:", c, "D:", depth, "G:", gates)
 
-        row = [im, c[0] * c[1], psnr, depth, gates, inner**2]
+        # row = [im, c[0] * c[1], psnr, depth, gates, inner**2]
 
-        writer.writerow(row)
+        # # writer.writerow(row)
 
-        plt.title("PSNR: " + str(psnr))
-        plt.imshow(quantumImage, cmap='gray')
-        plt.show()
+        # # plt.title("PSNR: " + str(psnr))
+        # # plt.imshow(quantumImage, cmap='gray')
+        # # plt.show()
 
 # print(image1)
 # print(image2)
